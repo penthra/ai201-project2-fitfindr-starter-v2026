@@ -59,24 +59,24 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Finds clothes in the local catalogue using keywords from the description. The user can also filter by size and budget. Sizes are matched without worrying about uppercase or lowercase, using complete size tokens: `M` matches `S/M`, but `L` does not match `XL`. Items priced exactly at the budget are included.
+- **Inputs:** `description` (`str`) is what the user is looking for. `size` (`str | None`, default `None`) and `max_price` (`float | None`, default `None`) are optional filters. `None` means that filter is skipped.
+- **Returns:** A list of matching listing dictionaries with details such as `title`, `price`, `size`, and `platform`. Better keyword matches come first. If two listings have the same score, the cheaper one comes first. The list contains at most `config.SEARCH_RESULT_LIMIT` items.
+- **When it has nothing:** Returns an empty list (`[]`) if no listings match.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Puts together two outfit ideas around the selected clothing item. It uses clothes from the user's wardrobe when they have items saved.
+- **Inputs:** `new_item` (`dict`) contains the selected listing. `wardrobe` (`dict`) contains an `items` list of the user's saved clothes.
+- **Returns:** A non-empty string (`str`) with two outfit suggestions. When using saved wardrobe pieces, it keeps their names exactly as they appear in the wardrobe so the user can tell which clothes to use.
+- **When it has nothing:** If the wardrobe is empty, it still gives two general outfit ideas and explains that they are general because the user has no wardrobe items saved.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Writes a short caption about the second-hand item and how to wear it, like something the user could post on social media.
+- **Inputs:** `outfit` (`str`) is the outfit suggestion text. `new_item` (`dict`) contains the selected listing and its details.
+- **Returns:** A string (`str`) with two to four sentences. The caption includes the item's price written in digits and the platform where it is being sold.
+- **When it has nothing:** If `outfit` is empty or only contains spaces or other whitespace, it returns a helpful message explaining that an outfit suggestion is needed. It does not call the model or raise an exception in this case.
 
 ---
 
