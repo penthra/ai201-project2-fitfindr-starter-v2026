@@ -95,6 +95,10 @@
 
 **Branch rule:**
 
+1. **`search_listings`:** The agent calls `search_listings` with the parsed description, size, and maximum price, then saves the returned list in `session["search_results"]`. If the list is empty, it saves a message in `session["error"]` suggesting different keywords, a different size, or a higher budget, and stops. Otherwise, it selects the first listing, saves it in `session["selected_item"]`, and continues to `suggest_outfit`.
+2. **`suggest_outfit`:** The agent calls `suggest_outfit` with the selected item from `session["selected_item"]` and the saved wardrobe from `session["wardrobe"]`. If the wardrobe contains items, the tool uses them to suggest two outfits around the selected item. If the wardrobe is empty, it suggests two general outfit ideas and explains that no wardrobe items are saved. The agent saves the returned text in `session["outfit_suggestion"]` and continues to `create_fit_card`.
+3. **`create_fit_card`:** The agent calls `create_fit_card` with the outfit suggestion from `session["outfit_suggestion"]` and the selected item from `session["selected_item"]`. If the outfit suggestion is empty or contains only whitespace, the tool returns a helpful message explaining that an outfit suggestion is needed. Otherwise, it writes a two-to-four-sentence caption about the item and how to wear it, including its price in digits and the platform where it is sold. The agent saves the returned text in `session["fit_card"]` and returns the completed session.
+
 **Where it lives:** `agent.py::run_agent`
 
 **How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
