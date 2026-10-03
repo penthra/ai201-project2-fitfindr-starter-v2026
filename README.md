@@ -99,43 +99,57 @@
 2. **`suggest_outfit`:** The agent calls `suggest_outfit` with the selected item from `session["selected_item"]` and the saved wardrobe from `session["wardrobe"]`. If the wardrobe contains items, the tool uses them to suggest two outfits around the selected item. If the wardrobe is empty, it suggests two general outfit ideas and explains that no wardrobe items are saved. The agent saves the returned text in `session["outfit_suggestion"]` and continues to `create_fit_card`.
 3. **`create_fit_card`:** The agent calls `create_fit_card` with the outfit suggestion from `session["outfit_suggestion"]` and the selected item from `session["selected_item"]`. If the outfit suggestion is empty or contains only whitespace, the tool returns a helpful message explaining that an outfit suggestion is needed. Otherwise, it writes a two-to-four-sentence caption about the item and how to wear it, including its price in digits and the platform where it is sold. The agent saves the returned text in `session["fit_card"]` and returns the completed session.
 
-**Where it lives:** `agent.py::run_agent`
+**Where it lives:** `agent.py::run_agent` (the function exists, but its planning loop is not implemented yet).
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** Planned approach: use regular expressions (regex) to extract the size and maximum price, then use the remaining clothing description as search keywords. Missing size or budget filters will be `None`. For example, "vintage graphic tee under $30, size M" will become description="vintage graphic tee", size="M", and max_price=30. Query parsing is not implemented yet.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** The session starts with `query` and `wardrobe`. The planned order is `parsed` (description, size, and maximum price), `search_results`, `selected_item`, `outfit_suggestion`, and `fit_card`. An empty search will set `error` and stop before the outfit and caption tools. Currently, the stub only creates the session, sets `error` to explain that the loop is not built, and returns it.
 
 ---
 
 ## Sample Run
 
-<!-- Two things go here.
+These outputs were captured from the current code using the project's virtual environment. Commands below assume that environment is activated.
 
-     1. One FULL query and its output, pasted as text.
-     2. Your three per-tool terminal tests — the command and what it printed. -->
+**One full query — current stub output**
 
-**One full query**
+The command runs, but the planning loop still stops at its placeholder. Replace this output with a completed run after implementing `run_agent`; this is not yet a successful full-agent example.
 
-```
-$ python app.py ask '...'
+```text
+$ python app.py ask 'vintage graphic tee under $30'
 
+  The planning loop isn't built yet — see the TODO in agent.py.
+
+0 model calls this session
 ```
 
 **The three tools, tested one at a time**
 
-```
+**`search_listings`**
+
+```text
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+[{'id': 'lst_017', 'title': 'Mesh Long-Sleeve Top — Black', 'description': 'Sheer black mesh long-sleeve. Great for layering under a graphic tee or over a bralette. Stretchy material, fits true to size.', 'category': 'tops', 'style_tags': ['y2k', 'grunge', 'goth', 'layering'], 'size': 'S/M', 'condition': 'excellent', 'price': 15.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink', 'purple'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_033', 'title': 'Vintage Band Tee — Faded Grey', 'description': 'Faded grey band-style tee with distressed graphic. Crew neck. Fits boxy. Well-loved but no holes or major damage.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'band tee', 'graphic tee', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 19.0, 'colors': ['grey', 'charcoal'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_006', 'title': 'Graphic Tee — 2003 Tour Bootleg Style', 'description': 'Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.', 'category': 'tops', 'style_tags': ['graphic tee', 'vintage', 'grunge', 'streetwear', 'band tee'], 'size': 'L', 'condition': 'good', 'price': 24.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'Faded black pullover hoodie with barely-visible vintage graphic on the chest. Cozy interior. Some pilling but adds to the worn-in look.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'graphic', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 26.0, 'colors': ['black', 'charcoal'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_011', 'title': 'Low-Rise Cargo Pants — Khaki', 'description': 'Y2K era low-rise cargo pants. Lots of pockets. Khaki color, slightly distressed at the hems. Great for layering with a long tee.', 'category': 'bottoms', 'style_tags': ['y2k', 'cargo', '2000s', 'streetwear'], 'size': 'W29', 'condition': 'fair', 'price': 27.0, 'colors': ['khaki', 'tan'], 'brand': None, 'platform': 'poshmark'}]
 ```
 
-```
-$ python -c "from tools import suggest_outfit; ..."
+**`suggest_outfit`**
 
+```text
+$ python -c "from tools import suggest_outfit; from utils.data_loader import load_listings, get_example_wardrobe; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+1. Outfit Idea 1
+Combination: Vintage Levi's 501 Jeans — Medium Wash paired with the White ribbed tank top, Black cropped zip hoodie, Chunky white sneakers, and Black crossbody bag.
+Why it works: This combination plays into a classic streetwear look. The fitted white tank top balances the straight-leg fit of the jeans, while the cropped zip hoodie and chunky white sneakers add casual, athletic layers that complement the vintage feel of the denim.
+
+2. Outfit Idea 2
+Combination: Vintage Levi's 501 Jeans — Medium Wash paired with the Oversized grey crewneck sweatshirt, Vintage black denim jacket, Black combat boots, and Brown leather belt.
+Why it works: This outfit leans into a grunge-inspired, cozy aesthetic. Tucking or layering with the oversized grey crewneck and throwing on the vintage black denim jacket creates a cool contrast against the medium wash jeans, while the black combat boots and brown leather belt anchor the heavier textures of the look.
 ```
 
-```
-$ python -c "from tools import create_fit_card; ..."
+**`create_fit_card`**
 
+```text
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('Pair with a white T-shirt and sneakers for a casual look.', load_listings()[0]))"
+Scored these amazing Vintage Levi's 501 Jeans — Medium Wash for just $38.00 on depop! Pair them with a white T-shirt and sneakers for an effortlessly casual look.
 ```
 
 ---

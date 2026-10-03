@@ -10,8 +10,7 @@ can't tell which layer is lying to you.
     suggest_outfit(new_item, wardrobe)             → str
     create_fit_card(outfit, new_item)              → str
 
-All three are stubs right now. They run and they do nothing — that's the
-starting position and it's deliberate.
+Search is implemented below. The two model-based tools are still stubs.
 
 ⚠️ Before you write any of them, fill in the **Tool Inventory** section of your
 README (Milestone 2). Four lines per tool: what it does, each input with its
@@ -20,7 +19,9 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
-import config  # noqa: F401 — you'll use this in search_listings
+import re
+import json
+import config
 from generate import generate
 from utils.data_loader import load_listings
 
@@ -67,7 +68,7 @@ def search_listings(
     realistic — thrift listings often have no brand. If something you write
     assumes a brand is always there, you will find out in unit 4.
 
-    TODO:
+    Search steps:
         1. Load every listing with load_listings().
         2. Filter by max_price and by size, when each is provided.
         3. Score what's left by keyword overlap with `description`.
@@ -78,8 +79,45 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    # Compare complete words, ignoring case and punctuation.
+    keywords = set(re.findall(r"\w+", description.casefold()))
+    if not keywords:
+        return []
+
+    # Keep decimal shoe sizes intact: US 8 must not match US 8.5.
+    size_pattern = r"[a-z0-9]+(?:\.[0-9]+)?"
+    requested_size = None
+    if size is not None:
+        requested_size = set(re.findall(size_pattern, size.casefold()))
+        if not requested_size:
+            return []
+
+    matches = []
+    for item in load_listings():
+        if max_price is not None and item["price"] > max_price:
+            continue
+
+        if requested_size is not None:
+            item_sizes = set(re.findall(size_pattern, item["size"].casefold()))
+            if not requested_size.issubset(item_sizes):
+                continue
+
+        searchable_text = " ".join([
+            item["title"],
+            item["description"],
+            item["category"],
+            " ".join(item["style_tags"]),
+            " ".join(item["colors"]),
+            item["brand"] or "",
+        ])
+        item_words = set(re.findall(r"\w+", searchable_text.casefold()))
+        score = len(keywords & item_words)
+        if score > 0:
+            matches.append((score, item))
+
+    # Higher keyword scores first; cheaper items break ties.
+    matches.sort(key=lambda match: (-match[0], match[1]["price"]))
+    return [item for score, item in matches[:config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +150,50 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    wardrobe_items = wardrobe["items"]
+    item_text =json.dumps(new_item, ensure_ascii=False, indent=2)
+    wardrobe_text = json.dumps(wardrobe_items,ensure_ascii=False, indent=2)
+    if not wardrobe_items:
+        wardrobe_instruction = (
+            "The user has no wardrobe items saved. "
+            "Explain this briefly and give two general outfit ideas "
+            "around the selected item. Do not claim the user owns "
+            "the clothes you recommend."
+        )
+    else:
+        wardrobe_instruction = (
+            "Create two outfit ideas around the selected item using "
+            "pieces from the saved wardrobe. Copy the names of those "
+            "pieces exactly as provided. Do not claim the user owns "
+            "any additional clothes."
+    )  
+    prompt = f"""
+    Suggest exactly two distinct outfits using the selected item.
+
+    {wardrobe_instruction}
+
+    For each outfit, describe the clothing combination and briefly explain
+    why it works. Include the selected item in both outfits.
+    Do not invent details about the selected item.
+
+    Return plain text with two numbered outfit ideas.
+    If the wardrobe is empty, put the explanation before the numbered ideas.
+
+    Selected item:
+    {item_text}
+
+    Saved wardrobe items:
+    {wardrobe_text}
+    """ 
+    response = generate(prompt)
+
+    outfit_text = response.strip()
+
+
+    if not outfit_text:
+        raise ValueError("The model returned no outfit suggestions.")
+
+    return outfit_text
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +232,31 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit.strip():
+        return "An outfit suggestion is needed before creating a fit card."
+
+    item_text = json.dumps(new_item, ensure_ascii=False, indent=2)
+    prompt = f"""
+        Write a short social media caption about this second-hand find.
+
+        Requirements:
+            - Write 2 to 4 sentences.
+            - Name the selected item once, using its title or an accurate short description.
+            - Include its correct price in digits once.
+            - Mention its selling platform once.
+            - Describe how to wear it using a combination from the outfit suggestion.
+            - Describe the outfit's style or vibe.
+            - Do not invent item details, including a brand if none is provided.
+            - Return only the caption.
+        Selected item:
+            {item_text}
+
+        Outfit suggestion:
+            {outfit}
+        """
+    caption = generate(prompt).strip()
+
+    if not caption:
+        raise ValueError("The model returned no fit card.")
+
+    return caption
