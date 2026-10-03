@@ -25,9 +25,9 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+A matching query should usually produce a complete result. I allow one
+failed try because the run depends on two model calls, and a temporary model
+service failure could prevent it from finishing even when search finds an item.
 
 ---
 
@@ -37,66 +37,56 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+Without a matching item, the agent cannot give an outfit based on a search
+result. I require 5 of 5 because Python can check for an empty list and return
+a helpful message without calling the model.
 
 ---
 
-## 3. Something about state
+## 3. The selected item reaches the next tool unchanged
 
-<!-- YOU WRITE THIS ONE.
-
-     How would you know that the item your search found is the same item the
-     next tool received? Name something countable or observable.
-
-     This is the criterion people find hardest, because state failure doesn't
-     look like state failure — it looks like a tool problem. Something that
-     compares session["selected_item"] against what actually reached
-     suggest_outfit is the shape you're after. -->
-
-
+Given a query that matches at least one listing, the item received by
+`suggest_outfit` matches the selected search result stored in
+`session["selected_item"]`, with all fields unchanged — 5 of 5 tries.
 
 **Why this target:**
-
-
+Passing the wrong item would produce outfit ideas for the wrong clothes.
+I require 5 of 5 because this step uses fixed Python code, not model output.
 
 ---
 
-## 4. Something about the fit card
+## 4. The fit card includes the right details
 
-<!-- YOU WRITE THIS ONE.
+Given a selected item and a non-empty outfit suggestion, the fit card meets
+all the following requirements — in at least 4 of 5 tries:
 
-     The fit card calls a model, so the same input can produce different words
-     each time. That's not a bug — it's the nature of the tool. So what would
-     make it acceptable?
+- Names the selected item once, using its title or an accurate short description.
+- Includes the item's correct price in digits once, such as "$25".
+- Names the correct selling platform once, such as "Depop".
+- Describes at least one way to wear the item using clothing combinations from the supplied outfit suggestion.
+- Describes the outfit's style or vibe, such as casual or vintage, consistently with the item and outfit suggestion.
+- Contains 2 to 4 sentences written as a social media caption.
+- Does not invent item details, such as a brand that is missing from the listing.
 
-     Think about what you'd actually be unhappy to see. A caption that never
-     mentions the price? Two different items producing the same opening
-     sentence? A card longer than a caption anyone would post? Any of those can
-     be turned into a number. -->
-
-
+The wording can vary. A try passes only if it meets every requirement above.
 
 **Why this target:**
-
-
+The caption should tell the user what the find is, what it costs, where it is
+sold, and how to wear it without making up details. I allow one failed try
+because the model may occasionally miss a content or length instruction.
 
 ---
 
-## 5. Your choice
+## 5. An empty wardrobe still produces outfit ideas
 
-<!-- YOU WRITE THIS ONE TOO.
-
-     Pick something you actually care about getting right. Speed, the empty
-     wardrobe path, what happens when the model can't be reached, whether the
-     search respects a price ceiling — anything, as long as it names a number
-     or an observable outcome. -->
-
-
+Given a selected item and an empty wardrobe, `suggest_outfit` returns two
+general outfit ideas and explains that no wardrobe items are saved — in at
+least 4 of 5 tries.
 
 **Why this target:**
-
-
+Users should get styling help even without a saved wardrobe. I allow one
+failed try because the model may occasionally miss the requested number of
+ideas or the explanation.
 
 ---
 
