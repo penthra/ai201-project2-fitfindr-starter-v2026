@@ -8,7 +8,7 @@ If your loop calls all three tools no matter what comes back, you have a list
 of function calls. A loop looks at the last result before it picks the next
 step. **That branch is the graded part of this unit.**
 
-Build and test your three tools in `tools.py` first. Then come here.
+This loop connects the three tools defined in `tools.py`.
 
     python agent.py          runs both example paths below
 """
@@ -65,7 +65,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         the run ended early and the later fields will still be None.
 
     ─────────────────────────────────────────────────────────────────────────
-    TODO — build this, following the branch rule you wrote in Milestone 2.
+    Planning stages, following the branch rule documented in the README.
 
       1. Start a session with new_session().
 

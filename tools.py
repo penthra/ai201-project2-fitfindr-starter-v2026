@@ -10,13 +10,9 @@ can't tell which layer is lying to you.
     suggest_outfit(new_item, wardrobe)             → str
     create_fit_card(outfit, new_item)              → str
 
-Search is implemented below. The two model-based tools are still stubs.
+Search runs locally. Outfit suggestions and fit-card captions use the model.
 
-⚠️ Before you write any of them, fill in the **Tool Inventory** section of your
-README (Milestone 2). Four lines per tool: what it does, each input with its
-type, exactly what it returns, and what it returns when it has nothing to give.
-That last line is what your loop branches on. "Returns a list" earns nothing —
-the description has to say what is *in* the list.
+The README Tool Inventory documents each tool's inputs, outputs, and empty cases.
 """
 
 import re
@@ -137,10 +133,10 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Returns:
         A non-empty string with outfit suggestions.
         With an empty wardrobe, return general styling advice rather than
-        raising or returning "". Unit 4 has you trigger the empty wardrobe on
-        purpose, so decide now what it should do.
+        raising or returning "". The prompt explains that no wardrobe items
+        are saved and requests two general outfit ideas.
 
-    TODO:
+    Steps:
         1. Check whether wardrobe['items'] is empty.
         2. If it is, ask the model for general styling ideas for this item.
         3. If it isn't, format the wardrobe items into the prompt and ask for
@@ -224,7 +220,7 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         • CACHE_ENABLED — the adapter handed back an answer it already had
         • TEMPERATURE   — at 0.0 the model gives the same words every time
 
-    TODO:
+    Steps:
         1. Guard against an empty or whitespace-only `outfit`.
         2. Build a prompt with the item details and the outfit.
         3. Call generate() and return the response.
