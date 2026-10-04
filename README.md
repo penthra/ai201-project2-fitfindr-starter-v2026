@@ -13,35 +13,19 @@
 > python app.py ask 'vintage graphic tee under $30'
 > ```
 >
-> All three tools are stubs, so that last command will do nothing useful yet.
-> That's the starting position.
+> The three tools and planning loop are implemented. The search runs locally;
+> outfit suggestions and captions use the model through `generate()`.
 >
 > **The rest of this file is your submission.** Fill it in as you go.
 
 ---
-
-<!-- ─────────────────────────────────────────────────────────────────────────
-     HOW TO USE THIS FILE
-
-     This is your submission. Fill each section in as you finish the milestone
-     it belongs to — don't leave it all to the end.
-
-     Unit 3 asks for the first five sections. Unit 4 adds the five below them.
-     Leave the unit 4 sections alone until then; they're here so you know
-     what's coming.
-
-     Everything is pasted as TEXT. No screenshots, no images, no video links.
-     A typed block of output gets full credit; a picture of the same output
-     gets none.
-     ───────────────────────────────────────────────────────────────────────── -->
+Peng Wu
 
 <!-- ═══════════════════════ UNIT 3 — THE BUILD ═══════════════════════ -->
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
-
-
+This project helps a user find second-hand clothes in a local catalogue by entering a description, an optional size, and a budget, such as "vintage graphic tee under $30, size M". It selects the highest-ranked match and asks a model for two outfit ideas using the saved example wardrobe, or general ideas when the wardrobe is empty. It then generates one short fit-card caption about the item, its price, its selling platform, and how to wear it. If no listings match, it stops and suggests changing the keywords, size, or budget.
 
 ---
 
@@ -82,45 +66,40 @@
 
 ## Planning Loop
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
-     the file and function that holds it.
-
-     Like this:
-       "If search_listings returns an empty list, put a message in the session
-        and stop. Otherwise take the first result and go to suggest_outfit."
-        — agent.py::run_agent
-
-     The grader checks your code against what you claim here, so the file and
-     function have to be real. -->
-
 **Branch rule:**
 
 1. **`search_listings`:** The agent calls `search_listings` with the parsed description, size, and maximum price, then saves the returned list in `session["search_results"]`. If the list is empty, it saves a message in `session["error"]` suggesting different keywords, a different size, or a higher budget, and stops. Otherwise, it selects the first listing, saves it in `session["selected_item"]`, and continues to `suggest_outfit`.
 2. **`suggest_outfit`:** The agent calls `suggest_outfit` with the selected item from `session["selected_item"]` and the saved wardrobe from `session["wardrobe"]`. If the wardrobe contains items, the tool uses them to suggest two outfits around the selected item. If the wardrobe is empty, it suggests two general outfit ideas and explains that no wardrobe items are saved. The agent saves the returned text in `session["outfit_suggestion"]` and continues to `create_fit_card`.
 3. **`create_fit_card`:** The agent calls `create_fit_card` with the outfit suggestion from `session["outfit_suggestion"]` and the selected item from `session["selected_item"]`. If the outfit suggestion is empty or contains only whitespace, the tool returns a helpful message explaining that an outfit suggestion is needed. Otherwise, it writes a two-to-four-sentence caption about the item and how to wear it, including its price in digits and the platform where it is sold. The agent saves the returned text in `session["fit_card"]` and returns the completed session.
 
-**Where it lives:** `agent.py::run_agent` (the function exists, but its planning loop is not implemented yet).
+**Where it lives:** `agent.py::run_agent`.
 
-**How the query is parsed:** Planned approach: use regular expressions (regex) to extract the size and maximum price, then use the remaining clothing description as search keywords. Missing size or budget filters will be `None`. For example, "vintage graphic tee under $30, size M" will become description="vintage graphic tee", size="M", and max_price=30. Query parsing is not implemented yet.
+**How the query is parsed:** The agent uses regular expressions (regex), without a model call, to extract a price after "under" and a size after "size". The dollar sign is optional, prices are converted to `float`, and matching ignores letter case. It removes those phrases, replaces commas with spaces, and tidies whitespace to form the search description. For example, "vintage graphic tee under $30, size M" becomes description="vintage graphic tee", size="M", and max_price=30.0. Missing size or budget filters are `None`. This parser handles these patterns, not every natural-language phrasing; for example, "under thirty dollars" is not recognized as a budget.
 
-**What moves through the session:** The session starts with `query` and `wardrobe`. The planned order is `parsed` (description, size, and maximum price), `search_results`, `selected_item`, `outfit_suggestion`, and `fit_card`. An empty search will set `error` and stop before the outfit and caption tools. Currently, the stub only creates the session, sets `error` to explain that the loop is not built, and returns it.
+**What moves through the session:** `new_session` starts with `query` and `wardrobe`. The agent fills `parsed`, then `search_results`, then saves the first result in `selected_item`. It passes that selected dictionary and the wardrobe to `suggest_outfit`, saving the returned text in `outfit_suggestion`. It passes that text and the same selected item to `create_fit_card`, saves the caption in `fit_card`, and returns the session. If search returns `[]`, it sets `error` and returns early; `selected_item`, `outfit_suggestion`, and `fit_card` remain `None`.
+
+The loop has three stages: `search`, `outfit`, and `card`. It increments a counter and calls `trace.check_iterations(count)` before each stage. Both the empty-search path and the completed-card path end with `return session`. Model exceptions are not yet caught by this loop.
 
 ---
 
 ## Sample Run
 
-These outputs were captured from the current code using the project's virtual environment. Commands below assume that environment is activated.
+These are actual outputs from the current code, run with the project's virtual environment. Commands below assume that environment is activated. The full run reused two cached responses, as the printed usage line shows; this is a functional example, not five independent model evaluation trials.
 
-**One full query — current stub output**
-
-The command runs, but the planning loop still stops at its placeholder. Replace this output with a completed run after implementing `run_agent`; this is not yet a successful full-agent example.
+**One full query**
 
 ```text
-$ python app.py ask 'vintage graphic tee under $30'
+$ python app.py ask 'vintage graphic tee under $30, size M'
 
-  The planning loop isn't built yet — see the TODO in agent.py.
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
 
-0 model calls this session
+  Outfit:   1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white sneakers, and the Black crossbody bag. This combination works because the fitted crop length of the baby tee balances out the voluminous silhouette of the baggy, high-waisted dark denim jeans, capturing an authentic Y2K streetwear aesthetic while keeping the accessories and footwear casual and functional.
+
+2. Outfit 2 pairs the Y2K Baby Tee — Butterfly Print with Wide-leg khaki trousers, Vintage black denim jacket, Black combat boots, and the Brown leather belt. This combination works because layering the slightly cropped black denim jacket over the pink, purple, and white butterfly graphic adds edge and contrast, while the wide-leg khaki trousers and combat boots ground the playful top with earthy tones and grunge elements.
+
+  Fit card: Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jeans, chunky white sneakers, and a black crossbody bag. You can grab this adorable crop top for just $18.00 on Depop.
+
+0 model calls this session, 2 served from cache
 ```
 
 **The three tools, tested one at a time**
@@ -156,24 +135,17 @@ Scored these amazing Vintage Levi's 501 Jeans — Medium Wash for just $38.00 on
 
 ## How I Used AI
 
-<!-- Two specific moments. What you asked, what came back, what you changed.
+**Moment 1 — implementing search**
 
-     "I used Claude to help me code" is not enough.
+- *What I asked for:* I asked Codex to explain how catalogue search works, clarify terms such as keyword scoring and tie-breaking, and guide me through implementing search_listings using the rules in my README.
+- *What came back:* Codex explained keyword scoring, optional size and budget filters, price-based tie-breaking, and the result limit. It explained why checking whether "L" is a substring of "XL" would give the wrong size match.
+- *What I changed:* With Codex's guidance, I replaced the search stub with an implementation. The tool now matches complete size tokens, includes items priced exactly at the budget, and returns [] when nothing matches. Codex also helped check size matching, sorting, and budget boundaries.
 
-     "I gave Claude my search_listings spec. It returned None on no match
-     instead of an empty list, so I changed it" is the level we want. -->
+**Moment 2 — turning a user's query into search inputs**
 
-**Moment 1**
-
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
-
-**Moment 2**
-
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked for step-by-step guidance on implementing `run_agent` from my README rules. I did not understand how `re.search` differed from `search_listings`, what the regex symbols meant, or how `.start()` and `.end()` were used to remove matched text.
+- *What came back:* Codex explained that regex reads the user's sentence to extract filters, while `search_listings` searches the catalogue. It showed how to turn "under $30" into the number `30.0`, extract "M" from "size M", and remove those phrases so the remaining text becomes the clothing description. It also explained that asking a model to extract the fields was an alternative, but would require parsing and validating its response.
+- *What I changed:* I used the guidance to add regex parsing in `agent.py` and save the description, size, and maximum price in `session["parsed"]`. I converted the captured price to a `float`, kept missing filters as `None`, and removed the matched filter phrases before searching. This separates the user's budget and size from the clothing keywords instead of treating the entire sentence as a search description.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
