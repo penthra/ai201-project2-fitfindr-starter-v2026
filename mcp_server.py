@@ -98,7 +98,14 @@ mcp = FastMCP("fitfindr", log_level="WARNING")
 # are not optional here. `description: str` becomes a required string;
 # `max_price: float | None = None` becomes an optional number. Getting these
 # wrong is the most common reason a call is rejected.
-
+@mcp.tool()
+def search_listings(
+    description: str,
+    size: str | None = None,
+    max_price: float | None = None,
+) -> list[dict]:
+    """Search local clothing listings by keywords, optional size, and an inclusive maximum price in dollars; return ranked listing dictionaries or [] when nothing matches."""
+    return _search_listings_impl(description, size, max_price)
 
 if __name__ == "__main__":
     mcp.run()
