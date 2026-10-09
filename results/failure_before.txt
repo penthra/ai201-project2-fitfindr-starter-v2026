@@ -1,0 +1,10 @@
+Failure check: real MCP calls with an intentionally invalid API key.
+The saved .env and real key are unchanged; caching is disabled.
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Vintage Band Tee — Faded Grey, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    select first item
+UNHANDLED: MCPError: Couldn't call 'suggest_outfit' over MCP: unhandled errors in a TaskGroup (1 sub-exception)
+Check that mcp_server.py runs on its own first:
+    python mcp_server.py
+If it exits immediately with an error, fix that before coming back here.

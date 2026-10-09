@@ -28,6 +28,9 @@ right trade for one unit.
 
 import asyncio
 import json
+import os
+
+import config
 import sys
 from pathlib import Path
 
@@ -75,6 +78,12 @@ async def _call(name: str, arguments: dict):
     params = StdioServerParameters(
         command=sys.executable,
         args=[str(SERVER)],
+        env={
+            # The server is a separate process: pass the actual cache setting.
+            "AI201_CACHE": "1" if config.CACHE_ENABLED else "0",
+            **({"AI201_EVAL_RECEIPT": os.environ["AI201_EVAL_RECEIPT"]}
+               if "AI201_EVAL_RECEIPT" in os.environ else {}),
+        },
     )
 
     async with stdio_client(params) as (read, write):

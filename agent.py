@@ -16,7 +16,7 @@ This loop connects the three tools defined in `tools.py`.
 import config
 import trace
 import re
-from mcp_client import call_tool
+from mcp_client import MCPError, call_tool
 from generate import ModelUnavailable
 
 
@@ -149,81 +149,105 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     while True:
         count +=1
         trace.check_iterations(count)
-        if stage == "search":
-            parsed = session["parsed"]
-            
+        try:
+            if stage == "search":
+                parsed = session["parsed"]
 
-            session["search_results"] = call_tool(
-            "search_listings",
-            {
-                "description": parsed["description"],
-                "size": parsed["size"],
-                "max_price": parsed["max_price"],
-            },
-            )
 
-            trace.step(
-                "search_listings (via MCP)",
-                inputs=parsed,
-                returned=session["search_results"],
-                note=(
-                    "branch: empty, stopping"
-                    if not session["search_results"]
-                    else "select first item"
-                ),
-            )
+                session["search_results"] = call_tool(
+                "search_listings",
+                {
+                    "description": parsed["description"],
+                    "size": parsed["size"],
+                    "max_price": parsed["max_price"],
+                },
+                )
 
-            if not session["search_results"]:
-                session["error"] = (
-                        "No matching items were found. Try different keywords, "
-                        "a different size, or a higher budget."
-                    )
+                trace.step(
+                    "search_listings (via MCP)",
+                    inputs=parsed,
+                    returned=session["search_results"],
+                    note=(
+                        "branch: empty, stopping"
+                        if not session["search_results"]
+                        else "select first item"
+                    ),
+                )
+
+                if not session["search_results"]:
+                    session["error"] = (
+                            "No matching items were found. Try different keywords, "
+                            "a different size, or a higher budget."
+                        )
+                    return session
+
+                session["selected_item"] = session["search_results"][0]
+                stage = "outfit"
+            elif stage == "outfit":
+                session["outfit_suggestion"] = call_tool(
+                    "suggest_outfit",
+                    {
+                        "new_item": session["selected_item"],
+                        "wardrobe": session["wardrobe"],
+                    },
+                )
+
+                trace.step(
+                    "suggest_outfit (via MCP)",
+                    inputs={
+                        "new_item": session["selected_item"],
+                        "wardrobe": session["wardrobe"],
+                    },
+                    returned=session["outfit_suggestion"],
+                    note=(
+                        "empty wardrobe: general advice"
+                        if not session["wardrobe"]["items"]
+                        else ""
+                    ),
+                )
+
+                stage = "card"
+            elif stage == "card":
+                session["fit_card"] = call_tool(
+                    "create_fit_card",
+                    {
+                        "outfit": session["outfit_suggestion"],
+                        "new_item": session["selected_item"],
+                    },
+                )
+
+                trace.step(
+                    "create_fit_card (via MCP)",
+                    inputs={
+                        "outfit": session["outfit_suggestion"],
+                        "new_item": session["selected_item"],
+                    },
+                    returned=session["fit_card"],
+                )
+
                 return session
-
-            session["selected_item"] = session["search_results"][0]
-            stage = "outfit"
-        elif stage == "outfit":
-            session["outfit_suggestion"] = call_tool(
-                "suggest_outfit",
-                {
-                    "new_item": session["selected_item"],
-                    "wardrobe": session["wardrobe"],
-                },
-            )
-
+        except (ModelUnavailable, MCPError):
+            tool_name = {
+                "search": "search_listings",
+                "outfit": "suggest_outfit",
+                "card": "create_fit_card",
+            }[stage]
+            if stage == "search":
+                session["error"] = (
+                    "Search could not complete. Check that the MCP server is "
+                    "available and try again."
+                )
+            else:
+                operation = "outfit suggestions" if stage == "outfit" else "the fit card"
+                session["error"] = (
+                    f"Could not generate {operation}. Check your model API key "
+                    "and internet connection, then try again."
+                )
             trace.step(
-                "suggest_outfit (via MCP)",
-                inputs={
-                    "new_item": session["selected_item"],
-                    "wardrobe": session["wardrobe"],
-                },
-                returned=session["outfit_suggestion"],
-                note=(
-                    "empty wardrobe: general advice"
-                    if not session["wardrobe"]["items"]
-                    else ""
-                ),
+                f"{tool_name} (via MCP)",
+                returned=session["error"],
+                note="tool unavailable: stopping; completed results preserved",
             )
-
-            stage = "card"
-        elif stage == "card":
-            session["fit_card"] = call_tool(
-                "create_fit_card",
-                {
-                    "outfit": session["outfit_suggestion"],
-                    "new_item": session["selected_item"],
-                },
-            )
-
-            trace.step(
-                "create_fit_card (via MCP)",
-                inputs={
-                    "outfit": session["outfit_suggestion"],
-                    "new_item": session["selected_item"],
-                },
-                returned=session["fit_card"],
-            )
-
             return session
 
 

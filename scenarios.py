@@ -15,38 +15,35 @@ own criteria need — these are a starting point, not a fixed set.
 
 SCENARIOS = [
     {
-        # A query the data can match. Criterion 1.
-        "name": "matching query completes",
+        "name": "matching query completes all three tools",
         "query": "vintage graphic tee under $30",
         "wardrobe": "example",
         "criterion": 1,
     },
     {
-        # A query nothing can match. Criterion 2 — the branch.
         "name": "impossible query stops early",
         "query": "designer ballgown size XXS under $5",
         "wardrobe": "example",
         "criterion": 2,
     },
     {
-        # A user with nothing saved. One of unit 4's three failure modes.
-        "name": "empty wardrobe",
+        "name": "selected item reaches next tool unchanged",
+        "query": "vintage graphic tee under $30",
+        "wardrobe": "example",
+        "criterion": 3,
+    },
+    {
+        "name": "fit card includes the right details",
+        "query": "vintage graphic tee under $30",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        "name": "empty wardrobe produces two general ideas",
         "query": "denim jacket under $50",
         "wardrobe": "empty",
-        "criterion": None,
+        "criterion": 5,
     },
-    # TODO: add what your criteria 3, 4 and 5 need.
-    #
-    # Set "criterion" to the number in criteria.md that the scenario tests.
-    # "criterion": None means a diagnostic run — useful to have, but it isn't
-    # one of your five, and run_eval.py marks it as such in the table.
-    #
-    # For a state criterion, any normal query works — what you're checking is
-    # what ends up in the session, not what the user typed.
-    #
-    # For a fit-card criterion, you probably want the SAME query listed more
-    # than once, or several different items, depending on what your criterion
-    # actually says.
 ]
 
 WARDROBES = ("example", "empty")

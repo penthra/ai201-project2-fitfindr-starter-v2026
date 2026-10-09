@@ -78,7 +78,7 @@ This project helps a user find second-hand clothes in a local catalogue by enter
 
 **What moves through the session:** `new_session` starts with `query` and `wardrobe`. The agent fills `parsed`, then `search_results`, then saves the first result in `selected_item`. It passes that selected dictionary and the wardrobe to `suggest_outfit`, saving the returned text in `outfit_suggestion`. It passes that text and the same selected item to `create_fit_card`, saves the caption in `fit_card`, and returns the session. If search returns `[]`, it sets `error` and returns early; `selected_item`, `outfit_suggestion`, and `fit_card` remain `None`.
 
-The loop has three stages: `search`, `outfit`, and `card`. It increments a counter and calls `trace.check_iterations(count)` before each stage. Both the empty-search path and the completed-card path end with `return session`. Model exceptions are not yet caught by this loop.
+The loop has three stages: `search`, `outfit`, and `card`. It increments a counter and calls `trace.check_iterations(count)` before each stage. Both the empty-search path and the completed-card path end with `return session`. The loop now catches `ModelUnavailable` and `MCPError`, saves a helpful message in `session["error"]`, records the failed step in the trace, and returns completed results without calling later tools.
 
 ---
 
@@ -156,94 +156,312 @@ Scored these amazing Vintage Levi's 501 Jeans — Medium Wash for just $38.00 on
 
 ## Run Log — Before
 
-<!-- Five criteria, five tries each, in this exact format.
-
-     Five, because your criteria are written out of five. Mark each try PASS
-     or FAIL, count the passes, and read that count against your target — a
-     row targeting 4 of 5 with three PASS cells is MISSED (3/5).
-
-     `python run_eval.py --label before` runs everything and writes the table
-     into results/. Paste it here and fill in the verdicts. -->
+Source: [original first run](results/run_2026-10-09_1747_before.md), produced by `run_eval.py::main` and `run_eval.py::write_report`. This is the first run actually performed, before adding the complete C3 receipt logging and fixing cache propagation.
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5)* |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. The selected item reaches the next tool unchanged | 5 of 5 | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED |
+| 4. The fit card includes the right details | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5)* |
+| 5. An empty wardrobe still produces outfit ideas | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5)* |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+*The PASS cells reflect the recorded outputs. The model-dependent verdicts are provisional: the evaluation disabled caching only in its own process, while the separate MCP servers could still use their caches. Every repeated model response in this original run is identical. This run cannot establish five independent fresh model answers.
+
+C3 is UNVERIFIED because the original trace abbreviates the received inputs to `dict with keys: new_item, wardrobe`. The report includes only the selected item's title, price, and platform; it does not record the full received dictionary or an all-fields comparison. Missing evidence is not evidence that the transfer failed, so no PASS/FAIL count is invented for C3.
+
+**Real output from one try for each criterion**
+
+The following excerpts are copied verbatim from Try 1 of each scenario in the original first run. Later receipts are not substituted into this Before section.
+
+**Criterion 1 — matching query completes all three tools, Try 1**
+
+Produced by: `agent.py::run_agent`; trace formatted by `trace.py::step`.
+
+- stopped early: no
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 10
+
+Outfit suggestion:
 
 ```
+1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white sneakers, and the Black crossbody bag. This combination works because the fitted crop length of the baby tee balances out the voluminous silhouette of the baggy, high-waisted dark denim jeans, capturing an authentic Y2K streetwear aesthetic while keeping the accessories and footwear casual and functional.
 
+2. Outfit 2 pairs the Y2K Baby Tee — Butterfly Print with Wide-leg khaki trousers, Vintage black denim jacket, Black combat boots, and the Brown leather belt. This combination works because layering the slightly cropped black denim jacket over the pink, purple, and white butterfly graphic adds edge and contrast, while the wide-leg khaki trousers and combat boots ground the playful top with earthy tones and grunge elements.
+```
+
+Fit card:
+
+```
+Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jeans, chunky white sneakers, and a black crossbody bag. You can grab this adorable crop top for just $18.00 on Depop.
+```
+
+Trace:
+
+```
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Vintage Band Tee — Faded Grey, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    select first item
+[2] suggest_outfit (via MCP)
+      in:  dict with keys: new_item, wardrobe
+      out: 1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white…
+[3] create_fit_card (via MCP)
+      in:  dict with keys: outfit, new_item
+      out: Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jea…
+```
+
+**Criterion 2 — impossible query stops early, Try 1**
+
+Produced by: `agent.py::run_agent`; trace formatted by `trace.py::step`.
+
+- stopped early: yes — No matching items were found. Try different keywords, a different size, or a higher budget.
+- selected_item: (none)
+- search_results: 0
+
+Trace:
+
+```
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+      →    branch: empty, stopping
+```
+
+**Criterion 3 — selected item reaches next tool unchanged, Try 1**
+
+Produced by: `agent.py::run_agent`; trace formatted by `trace.py::step`.
+
+This is the original incomplete evidence; it cannot prove all fields reached the receiving tool unchanged.
+
+- stopped early: no
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 10
+
+Outfit suggestion:
+
+```
+1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white sneakers, and the Black crossbody bag. This combination works because the fitted crop length of the baby tee balances out the voluminous silhouette of the baggy, high-waisted dark denim jeans, capturing an authentic Y2K streetwear aesthetic while keeping the accessories and footwear casual and functional.
+
+2. Outfit 2 pairs the Y2K Baby Tee — Butterfly Print with Wide-leg khaki trousers, Vintage black denim jacket, Black combat boots, and the Brown leather belt. This combination works because layering the slightly cropped black denim jacket over the pink, purple, and white butterfly graphic adds edge and contrast, while the wide-leg khaki trousers and combat boots ground the playful top with earthy tones and grunge elements.
+```
+
+Fit card:
+
+```
+Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jeans, chunky white sneakers, and a black crossbody bag. You can grab this adorable crop top for just $18.00 on Depop.
+```
+
+Trace:
+
+```
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Vintage Band Tee — Faded Grey, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    select first item
+[2] suggest_outfit (via MCP)
+      in:  dict with keys: new_item, wardrobe
+      out: 1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white…
+[3] create_fit_card (via MCP)
+      in:  dict with keys: outfit, new_item
+      out: Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jea…
+```
+
+**Criterion 4 — fit card includes the right details, Try 1**
+
+Produced by: `tools.py::create_fit_card`.
+
+- stopped early: no
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 10
+
+Outfit suggestion:
+
+```
+1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white sneakers, and the Black crossbody bag. This combination works because the fitted crop length of the baby tee balances out the voluminous silhouette of the baggy, high-waisted dark denim jeans, capturing an authentic Y2K streetwear aesthetic while keeping the accessories and footwear casual and functional.
+
+2. Outfit 2 pairs the Y2K Baby Tee — Butterfly Print with Wide-leg khaki trousers, Vintage black denim jacket, Black combat boots, and the Brown leather belt. This combination works because layering the slightly cropped black denim jacket over the pink, purple, and white butterfly graphic adds edge and contrast, while the wide-leg khaki trousers and combat boots ground the playful top with earthy tones and grunge elements.
+```
+
+Fit card:
+
+```
+Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jeans, chunky white sneakers, and a black crossbody bag. You can grab this adorable crop top for just $18.00 on Depop.
+```
+
+Trace:
+
+```
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Vintage Band Tee — Faded Grey, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    select first item
+[2] suggest_outfit (via MCP)
+      in:  dict with keys: new_item, wardrobe
+      out: 1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white…
+[3] create_fit_card (via MCP)
+      in:  dict with keys: outfit, new_item
+      out: Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jea…
+```
+
+**Criterion 5 — empty wardrobe produces two general ideas, Try 1**
+
+Produced by: `tools.py::suggest_outfit`.
+
+- stopped early: no
+- selected_item: Denim Jacket — Light Wash, Cropped ($42.0, poshmark)
+- search_results: 7
+
+Outfit suggestion:
+
+```
+You currently don't have any items saved in your digital wardrobe, so here are two general outfit ideas built around the Denim Jacket (Light Wash, Cropped) to inspire your styling.
+
+1. Outfit Idea One: Pair the light wash cropped denim jacket with a classic white crewneck t-shirt, high-waisted black wide-leg trousers, and retro white leather sneakers.
+Why it works: The structured shoulders and light wash of the jacket create a sharp contrast against the dark trousers, while the cropped length naturally emphasizes the high waist for a balanced, modern silhouette.
+
+2. Outfit Idea Two: Layer the cropped denim jacket over a floral midi slip dress in a dark or neutral tone, paired with chunky black leather combat boots.
+Why it works: The pairing plays on the contrast between feminine, fluid movement in the dress and the rugged, structured utility of the denim outerwear and boots, resulting in an effortless streetwear-inspired look.
+```
+
+Fit card:
+
+```
+Score this vintage-inspired streetwear look by grabbing this Denim Jacket — Light Wash, Cropped on Poshmark for just $42. Layer it over a floral midi slip dress and pair with chunky black leather combat boots for an effortless vibe.
+```
+
+Trace:
+
+```
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 7 items: Denim Jacket — Light Wash, Cropped, High-Waisted Denim Shorts — Cutoff, Denim Vest — Medium Wash, Studded … +4 more
+      →    select first item
+[2] suggest_outfit (via MCP)
+      in:  dict with keys: new_item, wardrobe
+      out: You currently don't have any items saved in your digital wardrobe, so here are two general outfit ideas built …
+      →    empty wardrobe: general advice
+[3] create_fit_card (via MCP)
+      in:  dict with keys: outfit, new_item
+      out: Score this vintage-inspired streetwear look by grabbing this Denim Jacket — Light Wash, Cropped on Poshmark fo…
 ```
 
 ---
 
 ## Verdicts and Diagnoses
 
-<!-- MET or MISSED per criterion against LAST UNIT's target, plus a sentence on
-     how you decided.
-
-     Then, for every miss: which of the four places it happened — a tool, the
-     loop's branch, the session, or the model's output — AND the mechanism.
-
-     Not a diagnosis:  "The fit card was bad."
-     A diagnosis:      "The fit card criterion missed on 2 of 5 items. Both had
-                        an empty brand field. My prompt puts the brand in the
-                        first sentence, so the card opened with a blank and read
-                        like a fragment. The tool worked; the prompt assumed a
-                        field that isn't always there."
-
-     Look for a pattern. Three misses on the same tool is one problem, not
-     three. -->
+These baseline judgments use the [original first run](results/run_2026-10-09_1747_before.md) and the unchanged targets in `criteria.md`. Later results are reported separately under Run Log — After.
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | A matching query completes all three tools | 4 of 5 | MET (5/5), provisional | Every saved trace shows the three tool calls and a non-empty fit card. The recorded outputs pass, but the server cache setting means this is not a verified five-fresh-answer evaluation. |
+| 2 | An impossible query stops before the second tool | 5 of 5 | MET (5/5) | Every try has zero matches, only the search step, and a message suggesting different keywords, size, or budget. This path does not call the model. |
+| 3 | The selected item reaches the next tool unchanged | 5 of 5 | UNVERIFIED | None of the five tries records the full received dictionary or a comparison with the full selected item. The abbreviated trace cannot establish the target. |
+| 4 | The fit card includes the right details | 4 of 5 | MET (5/5), provisional | All five saved captions meet the seven requirements: the right item, price and platform, a supplied clothing combination, a consistent vibe, two sentences in caption style, and no unsupported item details. The cache limitation prevents treating them as five confirmed fresh answers. |
+| 5 | An empty wardrobe still produces outfit ideas | 4 of 5 | MET (5/5), provisional | Each saved suggestion gives exactly two general outfit ideas and explains that no wardrobe items are saved. The model responses may have been reused from cache. |
 
 **Diagnoses**
 
+The first run did not demonstrate C3's target. The step was the handoff into `suggest_outfit`; the measurement mechanism was that `trace.py::_short` rendered the argument dictionary only as its key names, while `run_eval.py::write_report` saved only a summary of the selected item. There was no complete received-item snapshot to compare. This is an evaluation/logging gap, not proof that the agent changed any fields. C3 was already measurable as written, so its wording and 5-of-5 target remain unchanged.
 
+A second pattern affected all model-dependent scenarios: their repeated outputs were identical. `run_eval.py::main` set `config.CACHE_ENABLED = False` only in the evaluation process, but the model tools ran in separate MCP server processes with their own cache settings. Those outputs could therefore be cached rather than independent tries. This is an evaluation configuration problem at the client/server boundary. It does not prove that the captions or outfit ideas violated their content criteria, but it limits the first run's evidence of consistency.
+
+The remaining recorded outputs contain no observed content misses against the original criteria. The revised evaluation addresses both measurement gaps by capturing the item at the receiver and propagating the disabled cache setting. Its results appear in the After table. The first run remains preserved with its limitations.
 
 ---
 
 ## Loop Trace
 
-<!-- One full run, printed step by step, with the MCP call visible in it.
-
-     `python app.py ask '...' --trace` once you've added the trace.step()
-     calls in Milestone 2.
-
-     Worth pasting BOTH the happy path and the empty-search path. The empty
-     one should be visibly shorter, because it stops. If your two traces are
-     the same length, your branch isn't working — and this is the fastest way
-     anyone will ever find that out. -->
+These are actual Try 1 traces from the [original first run](results/run_2026-10-09_1747_before.md). The loop is `agent.py::run_agent`; trace output is produced by `trace.py::step`.
 
 **Happy path**
 
-```
+Query: `vintage graphic tee under $30`, with the example wardrobe.
 
+```text
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Vintage Band Tee — Faded Grey, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    select first item
+[2] suggest_outfit (via MCP)
+      in:  dict with keys: new_item, wardrobe
+      out: 1. Outfit 1 combines the Y2K Baby Tee — Butterfly Print with Baggy straight-leg jeans, dark wash, Chunky white…
+[3] create_fit_card (via MCP)
+      in:  dict with keys: outfit, new_item
+      out: Channel total Y2K streetwear energy by styling this Y2K Baby Tee — Butterfly Print with baggy straight-leg jea…
 ```
 
 **Empty search**
 
+Query: `designer ballgown size XXS under $5`, with the example wardrobe.
+
+```text
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+      →    branch: empty, stopping
 ```
 
+Returned error from `agent.py::run_agent`:
+
+```text
+No matching items were found. Try different keywords, a different size, or a higher budget.
 ```
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
+**On the MCP move:**
 
+The loop now imports `call_tool` from `mcp_client.py` and calls the registered tools by name with argument dictionaries. `mcp_server.py` registers typed wrappers around the existing implementations in `tools.py`. All three tools were moved onto MCP, although the milestone only required moving search. `mcp_client.py::_call` starts the server over stdio, initializes a session, checks the registered tool names, calls the requested tool, and unwraps its response into a Python value.
 
+In the current after-run, search still returns listing dictionaries, the highest-ranked item is still selected, and both later tools return text. The full path has three tool steps; the empty-search path has one because the loop stops before outfit generation. The C3 receipts also verify that the selected item's fields survive the MCP transfer unchanged in all five tries. These observations establish the behavior of the tested scenarios, rather than equality of all possible model responses before and after the move.
+
+One issue introduced by using separate processes was that disabling caching in the evaluation process did not disable it in the servers. The client now passes the actual cache setting to each server. The evaluation also passes a per-try receipt path so the receiving outfit tool can record the full item for C3.
+
+**Failure-mode evidence available so far**
+
+- **Empty search:** Triggered and handled in all five C2 tries. Search returns no results, the loop stops, and the user receives suggestions for changing the query.
+- **Empty wardrobe:** Triggered and handled in all five C5 tries. The outfit tool explains that no clothes are saved and returns two general ideas. The fit-card stage then completes.
+- **Model unavailable / bad key:** Triggered using `python run_failure_check.py`, which sends an intentionally invalid key only to the test's MCP subprocesses, with caching off. It does not edit `.env` or the saved key. Before the improvement, the loop raised an unhandled `MCPError` during outfit generation. After the improvement, it returns a helpful error, keeps the search results and selected item, and stops before fit-card generation. Real output is saved in [failure_before.txt](results/failure_before.txt) and [failure_after.txt](results/failure_after.txt).
+
+Bad-key output before the improvement, produced by `run_failure_check.py::main`:
+
+```text
+Failure check: real MCP calls with an intentionally invalid API key.
+The saved .env and real key are unchanged; caching is disabled.
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Vintage Band Tee — Faded Grey, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    select first item
+UNHANDLED: MCPError: Couldn't call 'suggest_outfit' over MCP: unhandled errors in a TaskGroup (1 sub-exception)
+Check that mcp_server.py runs on its own first:
+    python mcp_server.py
+If it exits immediately with an error, fix that before coming back here.
+```
+
+Bad-key trace after the improvement, produced by `agent.py::run_agent` and `trace.py::step`, printed by `run_failure_check.py::main`:
+
+```text
+Failure check: real MCP calls with an intentionally invalid API key.
+The saved .env and real key are unchanged; caching is disabled.
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Vintage Band Tee — Faded Grey, Graphic Tee — 2003 Tour Bootleg Style … +7 more
+      →    select first item
+[2] suggest_outfit (via MCP)
+      out: Could not generate outfit suggestions. Check your model API key and internet connection, then try again.
+      →    tool unavailable: stopping; completed results preserved
+```
+
+Selected fields from the returned session, copied from the saved after-check output:
+
+```json
+  "outfit_suggestion": null,
+  "fit_card": null,
+  "error": "Could not generate outfit suggestions. Check your model API key and internet connection, then try again."
+```
+
+```text
+HANDLED: the agent returned an error message instead of raising.
+```
 
 ---
 
@@ -256,34 +474,61 @@ full. -->
 
 **What I changed:**
 
+Made the evaluation capture verifiable evidence across the MCP boundary. `mcp_server.py::suggest_outfit` now records the complete received item before model work. `run_eval.py::run_once` creates a fresh receipt location for each try, compares the complete received item with `session["selected_item"]`, and saves both dictionaries and `all_fields_match` in the report. `mcp_client.py::_call` passes the cache setting and receipt path to each server process, so evaluation runs disable caching where the model calls actually happen.
+
 **Which failure it was meant to fix:**
+
+The original first run did not have enough print/log evidence to score C3, and its repeated model answers were not established as fresh responses. The revision makes the existing criteria testable with complete item comparisons and correctly propagated evaluation settings. No criterion or target was lowered or rewritten.
+
+The current version also handles model/MCP failures in the loop, as required by the failure-mode task. That separate fix is demonstrated by the bad-key before/after evidence under Loop Trace; it is not presented as proof that the first run's C3 transfer failed.
 
 ### Run Log — After
 
+Source: [after-run report](results/run_2026-10-09_1826_after.md), produced by `run_eval.py::main` and `run_eval.py::write_report`. All five scenarios were run five times with caching off and the same scenarios, targets, model, and temperature as the original first run. Unlike the first run, the current evaluation propagates caching off to the servers and captures full C3 receipts.
+
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. The selected item reaches the next tool unchanged | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. The fit card includes the right details | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. An empty wardrobe still produces outfit ideas | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+
+All five full-run tries completed their three tool steps. All five empty-search tries stopped after search with an actionable message. All five C3 receipts show equal selected and received dictionaries. Every C4 caption contains the correct item, price, and platform, a combination from its own suggestion, a consistent vibe, and two caption-style sentences without unsupported item details. Every C5 suggestion gives two general ideas and states that no wardrobe items are saved.
+
+C4 Try 3 awkwardly writes "baggy straight-leg jeans, a dark wash, and black combat boots." The jeans and boots are from the supplied outfit, and dark wash is a supplied description of the jeans. The wording is clumsy, but it does not violate one of the seven written requirements, so this try remains PASS.
+
+Real after-run caption from C4 Try 1, produced by `tools.py::create_fit_card`:
+
+```text
+Score this gorgeous Y2K Baby Tee — Butterfly Print for just $18.00 on Depop! Style it with wide-leg khaki trousers, a black cropped zip hoodie, and chunky white sneakers for a relaxed, casual vibe.
+```
 
 **Did it help, and how do I know:**
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
+The first run's C3 inputs were abbreviated to dictionary key names, so all five tries were unverified. The current After report contains both full item dictionaries for every C3 try; all five comparisons report `all_fields_match: true`. C3 can now be scored MET (5/5). This is improved evidence, not a demonstrated increase from zero successful transfers to five.
 
+The current evaluation passes the disabled cache setting into the server processes, and the saved model outputs vary across tries. The current five-scenario run meets all five unchanged targets with 5/5 passes. Because the first run had incomplete C3 evidence and a caching limitation, the two runs do not support claiming an increase in agent accuracy; they support a more trustworthy evaluation.
 
+For the additional failure-mode fix, the same real bad-key check changed from an unhandled `MCPError` to a returned session with an actionable message. Search results and the selected item are preserved, and later tool calls stop. The five normal scenarios still pass, so there is no observed regression on those scenarios.
 
 ---
 
 ## What's Still Broken
 
-<!-- For each criterion still missed: what you'd do, and why you stopped where
-     you did. "I ran out of time" is fine if it's true. Pretending nothing is
-     left is not. -->
+None of the five original criteria remains missed in the after-run. The tests still cover only one repeated tee and one repeated jacket, so the passing results do not establish reliability across the whole catalogue or arbitrary queries.
 
+There is a quality issue outside the written criteria. In the after-run's empty-wardrobe Try 4, `tools.py::suggest_outfit` says:
 
+```text
+You do not currently own these additional pieces, but they serve as great styling suggestions to complement the jacket.
+```
+
+An empty digital wardrobe means no items are saved; it does not establish what clothes the user owns in real life. The step is the outfit tool, and the mechanism is the model inferring ownership from missing saved data. This still passes criterion 5 because it supplies two general ideas and explains that no items are saved. A future prompt change could explicitly forbid inferring either ownership or non-ownership from the saved wardrobe, followed by repeated empty-wardrobe tests with an ownership requirement.
+
+The C4 Try 3 phrase "a dark wash" also shows that passing the current content checks does not guarantee smooth grammar. A future caption test could include clarity and grammatical completeness, with an explicit scoring rule.
+
+<!-- Personal reflection pending: ask the author for their actual stopping reason and next priority, and any real feedback from the verdict challenge. Do not invent these. -->
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
@@ -302,15 +547,15 @@ full. -->
 
      SUBMISSION CHECKLIST — unit 4
 
-       [ ] mcp_server.py exists with one tool registered
+       [x] mcp_server.py exists with one tool registered
            (or a written record of exactly where the rewire broke)
-       [ ] Run Log — Before, five criteria, five tries each
-       [ ] Real output pasted underneath, naming file and function
-       [ ] A verdict on every criterion
-       [ ] A diagnosis for every miss, naming a place AND a mechanism
-       [ ] Loop Trace, with the MCP call visible in it
-       [ ] All three failure modes triggered and handled
-       [ ] One improvement, with Run Log — After in the same format
+       [x] Run Log — Before, five criteria, five tries each
+       [x] Real output pasted underneath, naming file and function
+       [x] A verdict on every criterion
+       [x] A diagnosis for every miss, naming a place AND a mechanism
+       [x] Loop Trace, with the MCP call visible in it
+       [x] All three failure modes triggered and handled
+       [x] One improvement, with Run Log — After in the same format
        [ ] What's Still Broken
        [ ] At least four new commits
        [ ] The SAME repository URL as last unit
@@ -320,5 +565,3 @@ full. -->
      ═════════════════════════════════════════════════════════════════════ -->
 
 ---
-
-📖 **How to run this project: [RUNNING.md](RUNNING.md)**

@@ -57,6 +57,10 @@ works with a direct call, and **a documented failure earns the point in full.**
 ─────────────────────────────────────────────────────────────────────────────
 """
 
+import json
+import os
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
 from tools import search_listings as _search_listings_impl  # noqa: F401 — you'll use this below
@@ -112,6 +116,13 @@ def search_listings(
 @mcp.tool()
 def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     """Generate two outfit ideas for a listing dictionary using wardrobe['items']; return non-empty text with general advice when the wardrobe list is empty."""
+    # Evaluation-only receipt, captured at the receiving end before model work.
+    # Preserve the normal tool inputs and string return value.
+    receipt_path = os.environ.get("AI201_EVAL_RECEIPT")
+    if receipt_path:
+        Path(receipt_path).write_text(
+            json.dumps(new_item, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     return _suggest_outfit_impl(new_item, wardrobe)
 
 

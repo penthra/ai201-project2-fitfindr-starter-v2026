@@ -30,6 +30,10 @@ mode — caching is what usually explains it.
 
 import argparse
 import datetime as dt
+import json
+import os
+from pathlib import Path
+import tempfile
 import sys
 import traceback
 
@@ -51,11 +55,31 @@ def run_once(scenario, use_trace=True):
         trace_module.start_trace()
 
     record = {"error": None, "session": None, "trace": "", "crashed": None}
-    try:
-        record["session"] = run_agent(scenario["query"], wardrobe)
-    except Exception as exc:  # noqa: BLE001 — a crash is a result worth logging
-        record["crashed"] = f"{type(exc).__name__}: {exc}"
-        record["traceback"] = traceback.format_exc()
+    # Each try gets a fresh receipt file, so earlier tries cannot supply evidence.
+    with tempfile.TemporaryDirectory(prefix="fitfindr-eval-") as directory:
+        receipt = Path(directory) / "received_item.json"
+        previous_receipt = os.environ.get("AI201_EVAL_RECEIPT")
+        os.environ["AI201_EVAL_RECEIPT"] = str(receipt)
+        try:
+            record["session"] = run_agent(scenario["query"], wardrobe)
+        except Exception as exc:  # noqa: BLE001 — a crash is a result worth logging
+            record["crashed"] = f"{type(exc).__name__}: {exc}"
+            record["traceback"] = traceback.format_exc()
+        finally:
+            if previous_receipt is None:
+                os.environ.pop("AI201_EVAL_RECEIPT", None)
+            else:
+                os.environ["AI201_EVAL_RECEIPT"] = previous_receipt
+
+        received = json.loads(receipt.read_text(encoding="utf-8")) if receipt.exists() else None
+        selected = (record["session"] or {}).get("selected_item")
+        record["item_transfer"] = {
+            "selected_item": selected,
+            "received_new_item": received,
+            "all_fields_match": (
+                selected == received if selected is not None and received is not None else None
+            ),
+        }
 
     if use_trace:
         record["trace"] = trace_module.get_trace()
@@ -179,6 +203,18 @@ def write_report(rows, args):
         for i, record in enumerate(row["tries"], 1):
             lines.append(f"**Try {i}**")
             lines.append("")
+
+            if scenario.get("criterion") == 3:
+                evidence = record["item_transfer"]
+                comparison = evidence["all_fields_match"]
+                status = "PASS" if comparison is True else "FAIL" if comparison is False else "UNVERIFIED"
+                lines += [
+                    "Item transfer evidence:", "",
+                    "- Received item recorded by: `mcp_server.py::suggest_outfit`",
+                    "- Comparison recorded by: `run_eval.py::run_once`",
+                    f"- C3 all-fields comparison: {status}", "",
+                    "```json", json.dumps(evidence, ensure_ascii=False, indent=2), "```", "",
+                ]
 
             if record["crashed"]:
                 lines += ["Crashed:", "", "```", record["crashed"], "```", ""]
