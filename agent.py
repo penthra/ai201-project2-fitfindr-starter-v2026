@@ -16,7 +16,6 @@ This loop connects the three tools defined in `tools.py`.
 import config
 import trace
 import re
-from tools import suggest_outfit, create_fit_card
 from mcp_client import call_tool
 from generate import ModelUnavailable
 
@@ -184,13 +183,16 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             session["selected_item"] = session["search_results"][0]
             stage = "outfit"
         elif stage == "outfit":
-            session["outfit_suggestion"] = suggest_outfit(
-                new_item=session["selected_item"],
-                wardrobe=session["wardrobe"],
+            session["outfit_suggestion"] = call_tool(
+                "suggest_outfit",
+                {
+                    "new_item": session["selected_item"],
+                    "wardrobe": session["wardrobe"],
+                },
             )
 
             trace.step(
-                "suggest_outfit",
+                "suggest_outfit (via MCP)",
                 inputs={
                     "new_item": session["selected_item"],
                     "wardrobe": session["wardrobe"],
@@ -205,13 +207,16 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
             stage = "card"
         elif stage == "card":
-            session["fit_card"] = create_fit_card(
-                outfit=session["outfit_suggestion"],
-                new_item=session["selected_item"],
+            session["fit_card"] = call_tool(
+                "create_fit_card",
+                {
+                    "outfit": session["outfit_suggestion"],
+                    "new_item": session["selected_item"],
+                },
             )
 
             trace.step(
-                "create_fit_card",
+                "create_fit_card (via MCP)",
                 inputs={
                     "outfit": session["outfit_suggestion"],
                     "new_item": session["selected_item"],

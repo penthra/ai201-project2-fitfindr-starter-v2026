@@ -60,6 +60,8 @@ works with a direct call, and **a documented failure earns the point in full.**
 from mcp.server.fastmcp import FastMCP
 
 from tools import search_listings as _search_listings_impl  # noqa: F401 — you'll use this below
+from tools import suggest_outfit as _suggest_outfit_impl
+from tools import create_fit_card as _create_fit_card_impl
 
 # log_level="WARNING" keeps the server from printing an INFO line for every
 # request. Without it your terminal fills with "Processing request of type
@@ -106,6 +108,18 @@ def search_listings(
 ) -> list[dict]:
     """Search local clothing listings by keywords, optional size, and an inclusive maximum price in dollars; return ranked listing dictionaries or [] when nothing matches."""
     return _search_listings_impl(description, size, max_price)
+
+@mcp.tool()
+def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
+    """Generate two outfit ideas for a listing dictionary using wardrobe['items']; return non-empty text with general advice when the wardrobe list is empty."""
+    return _suggest_outfit_impl(new_item, wardrobe)
+
+
+@mcp.tool()
+def create_fit_card(outfit: str, new_item: dict) -> str:
+    """Generate a two-to-four-sentence caption from outfit text and a listing dictionary, including its price and platform; return a helpful message without calling the model when outfit text is blank."""
+    return _create_fit_card_impl(outfit, new_item)
+
 
 if __name__ == "__main__":
     mcp.run()
