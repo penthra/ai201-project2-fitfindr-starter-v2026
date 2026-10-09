@@ -368,6 +368,7 @@ A second pattern affected all model-dependent scenarios: their repeated outputs 
 
 The remaining recorded outputs contain no observed content misses against the original criteria. The revised evaluation addresses both measurement gaps by capturing the item at the receiver and propagating the disabled cache setting. Its results appear in the After table. The first run remains preserved with its limitations.
 
+
 ---
 
 ## Loop Trace
@@ -528,7 +529,11 @@ An empty digital wardrobe means no items are saved; it does not establish what c
 
 The C4 Try 3 phrase "a dark wash" also shows that passing the current content checks does not guarantee smooth grammar. A future caption test could include clarity and grammatical completeness, with an explicit scoring rule.
 
-<!-- Personal reflection pending: ask the author for their actual stopping reason and next priority, and any real feedback from the verdict challenge. Do not invent these. -->
+**Stopping point and next priority**
+
+The current stopping point is a completed after-run in which all five original criteria pass, together with a handled bad-key test. The original run is preserved with its incomplete C3 evidence and caching limitation. I also do not have enough time to explore more scenarios or make further improvements before submission. Further work would need additional scenarios rather than treating the present results as proof of reliability across the whole catalogue.
+
+The next priority is to test more item categories and listings with both present and missing brands. An additional empty-wardrobe check should require the model to distinguish between clothes that are not saved and clothes that the user does not own. The current results document the tested behavior and these remaining limits; they do not establish that the model is correct for every input.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
@@ -556,7 +561,7 @@ The C4 Try 3 phrase "a dark wash" also shows that passing the current content ch
        [x] Loop Trace, with the MCP call visible in it
        [x] All three failure modes triggered and handled
        [x] One improvement, with Run Log — After in the same format
-       [ ] What's Still Broken
+       [x] What's Still Broken
        [ ] At least four new commits
        [ ] The SAME repository URL as last unit
 
