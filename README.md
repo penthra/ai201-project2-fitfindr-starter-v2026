@@ -16,6 +16,7 @@
 > The three tools and planning loop are implemented. The search runs locally;
 > outfit suggestions and captions use the model through `generate()`.
 >
+
 > **The rest of this file is your submission.** Fill it in as you go.
 
 ---
@@ -147,12 +148,12 @@ Scored these amazing Vintage Levi's 501 Jeans — Medium Wash for just $38.00 on
 - *What came back:* Codex explained that regex reads the user's sentence to extract filters, while `search_listings` searches the catalogue. It showed how to turn "under $30" into the number `30.0`, extract "M" from "size M", and remove those phrases so the remaining text becomes the clothing description. It also explained that asking a model to extract the fields was an alternative, but would require parsing and validating its response.
 - *What I changed:* I used the guidance to add regex parsing in `agent.py` and save the description, size, and maximum price in `session["parsed"]`. I converted the captured price to a `float`, kept missing filters as `None`, and removed the matched filter phrases before searching. This separates the user's budget and size from the clothing keywords instead of treating the entire sentence as a search description.
 
+---
+
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
      Don't fill these in during unit 3.
      ═══════════════════════════════════════════════════════════════════ -->
-
----
 
 ## Run Log — Before
 
@@ -367,7 +368,6 @@ The first run did not demonstrate C3's target. The step was the handoff into `su
 A second pattern affected all model-dependent scenarios: their repeated outputs were identical. `run_eval.py::main` set `config.CACHE_ENABLED = False` only in the evaluation process, but the model tools ran in separate MCP server processes with their own cache settings. Those outputs could therefore be cached rather than independent tries. This is an evaluation configuration problem at the client/server boundary. It does not prove that the captions or outfit ideas violated their content criteria, but it limits the first run's evidence of consistency.
 
 The remaining recorded outputs contain no observed content misses against the original criteria. The revised evaluation addresses both measurement gaps by capturing the item at the receiver and propagating the disabled cache setting. Its results appear in the After table. The first run remains preserved with its limitations.
-
 
 ---
 
